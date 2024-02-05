@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="?attr/actionBarSize"
+    android:padding="16dp"
+
+    android:background="?colorPrimary"
+    android:foreground="?attr/selectableItemBackgroundBorderless">
+    <TextView
+        android:layout_gravity="center"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAlignment="center"
+        android:textAppearance="@style/TextAppearance.AppCompat.Headline"
+        android:theme="@style/Theme.Material3.Dark"
+        android:text="LibreSample"/>
+
+</LinearLayout>
