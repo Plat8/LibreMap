@@ -21,7 +21,17 @@ fun Application.module() {
     }
 
     get("/api/data1") {
+      val geoJson = SampleServerRepository().getSampleJson()
+      call.respond(geoJson)
+    }
+
+    get("/api/data2") {
       val geoJson = SampleServerRepository().getPointsJson()
+      call.respond(geoJson)
+    }
+
+    get("/api/data3") {
+      val geoJson = SampleServerRepository().getRouteJson()
       call.respond(geoJson)
     }
   }

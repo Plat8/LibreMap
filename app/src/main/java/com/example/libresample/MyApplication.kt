@@ -3,7 +3,7 @@ package com.example.libresample
 import android.app.Application
 import android.content.Context
 
-class MyApplication: Application() {
+class MyApplication : Application() {
 
   override fun onCreate() {
     super.onCreate()

@@ -21,8 +21,9 @@ class SampleServerRepository(
     }
     return geoJson
   }
+
   fun getRouteJson(): String {
-    val geoJson = context.assets.open("point-samples.geojson").use {
+    val geoJson = context.assets.open("route.geojson").use {
       it.reader().readText()
     }
     return geoJson

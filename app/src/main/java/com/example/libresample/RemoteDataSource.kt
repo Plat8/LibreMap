@@ -12,9 +12,9 @@ class RemoteDataSource {
   private val serverAddress = "http://localhost:8080"
 
   val urls: Map<String,String> =  mapOf(
-    "Sample" to "${serverAddress}/api/data",
-    "Points" to "${serverAddress}/api/data1",
-    "Route" to "${serverAddress}/api/data2"
+    "Sample" to "${serverAddress}/api/data1",
+    "Points" to "${serverAddress}/api/data2",
+    "Route" to "${serverAddress}/api/data3"
   )
 
   suspend fun fetchGeoJson(url: String): Result<String> {

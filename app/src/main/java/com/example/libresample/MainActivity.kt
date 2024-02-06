@@ -1,12 +1,15 @@
 package com.example.libresample
 
 import android.graphics.Color
+import android.graphics.Rect
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
+import android.view.MotionEvent
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.children
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.example.libresample.databinding.ActivityMainBinding
@@ -17,6 +20,9 @@ import com.mapbox.mapboxsdk.Mapbox
 import com.mapbox.mapboxsdk.camera.CameraPosition
 import com.mapbox.mapboxsdk.geometry.LatLng
 import com.mapbox.mapboxsdk.maps.Style
+import com.mapbox.mapboxsdk.style.layers.LineLayer
+import com.mapbox.mapboxsdk.style.layers.Property
+import com.mapbox.mapboxsdk.style.layers.PropertyFactory
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAllowOverlap
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconSize
@@ -26,6 +32,8 @@ import io.ktor.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.netty.NettyApplicationEngine
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 
@@ -47,72 +55,35 @@ class MainActivity : AppCompatActivity() {
       }
     }
 
+    lifecycleScope.launch {
+      viewModel.sideEffect.flowWithLifecycle(lifecycle).collect() {
+        handleSideEffect(it)
+      }
+    }
 
-    // Init MapLibre
     Mapbox.getInstance(this);
 
-    // Init layout view
     val inflater = LayoutInflater.from(this)
 
     binding = ActivityMainBinding.inflate(inflater)
     setContentView(binding.root)
 
-    // Init the MapView
-    binding.mapView.getMapAsync { map ->
-      map.setStyle("https://demotiles.maplibre.org/style.json") {
+    setupMap()
 
-        val geoJson = assets.open("point-samples.geojson").use { stream ->
-          stream.reader().readText()
-        }
-
-
-        // Create feature object from the GeoJSON we declared.
-        val parisBoundariesFeature = FeatureCollection.fromJson(geoJson)
-        // Create a GeoJson Source from our feature.
-        val geojsonSource = GeoJsonSource("points-source", parisBoundariesFeature)
-        // Add the source to the style
-        it.addSource(geojsonSource)
-
-        val name = resources.getResourceEntryName(R.drawable.pnt_survey)
-        val drawable = getDrawable(R.drawable.pnt_survey) ?: throw Exception("Drawable not found")
-
-        if (it.getImage(name) == null)
-          it.addImage(name, drawable)
-
-        val symbolLayer = SymbolLayer("points-layer", "points-source")
-        symbolLayer.withProperties(
-          iconImage(name),
-          iconSize(1.0f),
-          iconAllowOverlap(true)
-        )
-
-        it.addLayer(symbolLayer)
-
-
-        map.addOnMapClickListener { point ->
-          val screenPoint = map.projection.toScreenLocation(point)
-          val clickedFeatures = map.queryRenderedFeatures(screenPoint, "points-layer")
-
-          if (clickedFeatures.isNotEmpty()) {
-            // Marker clicked, show Toast with feature properties
-            val properties = clickedFeatures[0].properties()
-            properties?.let { it ->
-              val toastMessage = buildToastMessage(it)
-              Toast.makeText(this, toastMessage, Toast.LENGTH_SHORT).show()
-            }
-            true
-          } else {
-            false
-          }
-        }
-
-      }
-      map.cameraPosition = CameraPosition.Builder().target(LatLng(0.0, 0.0)).zoom(1.0).build()
-
+    //setup drawer menu
+    binding.navView.setNavigationItemSelectedListener {
+      viewModel.selectItem(it.itemId)
+      true
     }
 
     setupToolbar();
+  }
 
+  private fun handleSideEffect(sideEffect: MainSideEffect) {
+    when (sideEffect) {
+      is MainSideEffect.ShowToast -> Toast.makeText(this, sideEffect.message, Toast.LENGTH_SHORT)
+        .show()
+    }
   }
 
   private fun setupToolbar() {
@@ -129,12 +100,71 @@ class MainActivity : AppCompatActivity() {
   }
 
 
-  private fun updateGeoJsonSource(style: Style, sourceId: String, updatedGeoJsonData: String) {
-    style.getSourceAs<GeoJsonSource>(sourceId)
-      ?.setGeoJson(FeatureCollection.fromJson(updatedGeoJsonData))
+  private fun setupMap() = binding.mapView.getMapAsync { map ->
+    map.setStyle("https://demotiles.maplibre.org/style.json") {
+
+
+      val parisBoundariesFeature = FeatureCollection.fromJson("")
+      val geojsonSource = GeoJsonSource("points-source", parisBoundariesFeature)
+      it.addSource(geojsonSource)
+
+      val name = resources.getResourceEntryName(R.drawable.pnt_survey)
+      val drawable = getDrawable(R.drawable.pnt_survey) ?: throw Exception("Drawable not found")
+
+      if (it.getImage(name) == null)
+        it.addImage(name, drawable)
+
+      //Add Symbol Layer
+      val symbolLayer = SymbolLayer("points-layer", "points-source")
+      symbolLayer.withProperties(
+        iconImage(name),
+        iconSize(1.0f),
+        iconAllowOverlap(true)
+      )
+      it.addLayer(symbolLayer)
+
+      //Add line layer
+      val layer = LineLayer("routes-layer", "points-source")
+        .withProperties(
+          PropertyFactory.lineCap(Property.LINE_CAP_SQUARE),
+          PropertyFactory.lineJoin(Property.LINE_JOIN_MITER),
+          PropertyFactory.lineOpacity(0.7f),
+          PropertyFactory.lineWidth(4f),
+          PropertyFactory.lineColor("#0094ff")
+        )
+      it.addLayer(layer)
+
+      map.addOnMapClickListener { point ->
+        val screenPoint = map.projection.toScreenLocation(point)
+        val clickedFeatures = map.queryRenderedFeatures(screenPoint, "points-layer")
+
+        if (clickedFeatures.isNotEmpty()) {
+          // Marker clicked, show Toast with feature properties
+          val properties = clickedFeatures[0].properties()
+          properties?.let { it ->
+            val toastMessage = buildToastMessage(it)
+            Toast.makeText(this, toastMessage, Toast.LENGTH_SHORT).show()
+          }
+          true
+        } else {
+          false
+        }
+      }
+
+    }
+    map.cameraPosition = CameraPosition.Builder().target(LatLng(0.0, 0.0)).zoom(1.0).build()
   }
 
-  private fun render(uiState: MainViewState) {
+
+  private fun updateGeoJsonSource(style: Style, sourceId: String, updatedGeoJsonData: String) {
+    CoroutineScope(Dispatchers.Main).launch {
+      style.getSourceAs<GeoJsonSource>(sourceId)
+        ?.setGeoJson(FeatureCollection.fromJson(updatedGeoJsonData))
+    }
+
+  }
+
+  private fun render(uiState: MainState) {
 
     binding.mapView.getMapAsync { map ->
       map.style?.let {
@@ -144,12 +174,15 @@ class MainActivity : AppCompatActivity() {
 
     if (binding.navView.menu.size() != uiState.menuList.size) {
       binding.navView.menu.clear()
-      uiState.menuList.onEachIndexed { it, str ->
-        binding.navView.menu.add(Menu.NONE, it, Menu.NONE, str)
+      uiState.menuList.forEachIndexed { it, str ->
+        val menu = binding.navView.menu.add(Menu.NONE, it, Menu.NONE, str)
+        menu.setChecked(it == uiState.selectedItem)
       }
-
     }
 
+    binding.navView.menu.children.forEachIndexed { it, menu ->
+      menu.setChecked(it == uiState.selectedItem)
+    }
 
   }
 
@@ -204,5 +237,22 @@ class MainActivity : AppCompatActivity() {
     server.start()
   }
 
+  override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+
+    if (binding.navView.isShown) {
+      val viewRect = Rect()
+      binding.navView.getGlobalVisibleRect(viewRect)
+      if (!viewRect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+
+        CoroutineScope(Dispatchers.Main).launch {
+          binding.drawerLayout.close()
+        }
+
+        return binding.mapView.dispatchTouchEvent(ev)
+      }
+    }
+
+    return super.dispatchTouchEvent(ev)
+  }
 
 }
